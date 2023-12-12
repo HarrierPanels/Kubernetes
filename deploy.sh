@@ -116,7 +116,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   awsElasticBlockStore:
-    volumeID: "<your-EBS-volume-id>"
+    volumeID: "vol-03af749d82c847c5d"
     fsType: ext4
 ---
 apiVersion: v1
@@ -161,6 +161,26 @@ spec:
         image: alpine:latest
         command: ['sh', '-c', '
           # Your init container commands here
+          # Install CRUD
+          curl -L -o /tmp/crud.zip https://github.com/FaztWeb/php-mysql-crud/archive/master.zip
+          unzip /tmp/crud.zip -d /tmp/
+          cp -rv /tmp/php-mysql-crud-master/* /usr/share/nginx/html/
+          rm -rf /tmp/crud.zip /tmp/php-mysql-crud-master
+
+          cd /usr/share/nginx/html/
+          # Modify the SQL script
+          sed -i "s/php_mysql_crud/'"$dbname"'/g" database/script.sql
+          sed -i 's/CREATE DATABASE/CREATE DATABASE IF NOT EXISTS/' database/script.sql
+          sed -i 's/CREATE TABLE/CREATE TABLE IF NOT EXISTS/' database/script.sql
+          # Execute the SQL script with dynamic variables
+          mysql -h "$DB_HOSTNAME" -u "$DB_USERNAME" -p"$DB_PASSWORD" -e "source /var/www/html/database/script.sql"
+
+          # Modify PHP files
+          sed -i "s/php_mysql_crud/'"$dbname"'/g" db.php
+          sed -i "s/root/'"$username"'/g" db.php
+          sed -i "s/password123/'"$password"'/g" db.php
+          sed -i "s/localhost/'"$DB_HOSTNAME"'/g" db.php
+          sed -i 's/erro/error/' db.php
           ']
       containers:
       - name: nginx-php-container
